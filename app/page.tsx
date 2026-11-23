@@ -1,68 +1,420 @@
-import Image from "next/image";
 
-export default function Home() {
+
+"use client";
+
+import { useEffect, useState } from "react";
+
+type Book = {
+  id: number;
+  title: string;
+  author: string;
+  isbn: string | null;
+  year: number | null;
+  available: boolean;
+};
+
+type BookForm = {
+  title: string;
+  author: string;
+  isbn: string;
+  year: string;
+};
+
+const API_BASE = (
+  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000"
+).replace(/\/$/, "");
+
+const emptyForm: BookForm = {
+  title: "",
+  author: "",
+  isbn: "",
+  year: "",
+};
+
+async function apiRequest<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+    cache: "no-store",
+  });
+
+  const text = await response.text();
+  let data: unknown = null;
+
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = null;
+  }
+
+  if (!response.ok) {
+    const errorData = data as {
+      error?: { message?: string };
+    } | null;
+
+    throw new Error(
+      errorData?.error?.message || `Request failed: ${response.status}`
+    );
+  }
+
+  return data as T;
+}
+
+export default function Dashboard() {
+  const [books, setBooks] = useState<Book[]>([]);
+  const [search, setSearch] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [form, setForm] = useState<BookForm>(emptyForm);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+
+  async function loadBooks() {
+    try {
+      setLoading(true);
+      const data = await apiRequest<Book[]>("/books");
+      setBooks(data);
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Unable to load books."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadBooks();
+  }, []);
+
+  const filteredBooks = books.filter((book) =>
+    `${book.title} ${book.author} ${book.isbn || ""}`
+      .toLowerCase()
+      .includes(search.toLowerCase())
+  );
+
+  const available = books.filter((book) => book.available).length;
+  const borrowed = books.filter((book) => !book.available).length;
+
+  function openAddForm() {
+    setEditingId(null);
+    setForm(emptyForm);
+    setShowForm(true);
+    setMessage("");
+  }
+
+  function openEditForm(book: Book) {
+    setEditingId(book.id);
+    setForm({
+      title: book.title,
+      author: book.author,
+      isbn: book.isbn || "",
+      year: book.year?.toString() || "",
+    });
+    setShowForm(true);
+    setMessage("");
+  }
+
+  async function saveBook(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setSaving(true);
+    setMessage("");
+
+    const payload = {
+      title: form.title.trim(),
+      author: form.author.trim(),
+      isbn: form.isbn.trim() || null,
+      year: form.year.trim() ? Number(form.year) : null,
+    };
+
+    try {
+      if (editingId !== null) {
+        await apiRequest<Book>(`/books/${editingId}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        });
+        setMessage("Book updated successfully!");
+      } else {
+        await apiRequest<Book>("/books", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        setMessage("Book added successfully!");
+      }
+
+      setShowForm(false);
+      setEditingId(null);
+      setForm(emptyForm);
+      await loadBooks();
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Unable to save book."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteBook(id: number) {
+    if (!window.confirm("Are you sure you want to delete this book?")) {
+      return;
+    }
+
+    setMessage("");
+
+    try {
+      await apiRequest<void>(`/books/${id}`, {
+        method: "DELETE",
+      });
+      setMessage("Book deleted successfully!");
+      await loadBooks();
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Unable to delete book."
+      );
+    }
+  }
+
+  async function changeBookStatus(book: Book) {
+    setMessage("");
+
+    const action = book.available ? "borrow" : "return";
+
+    try {
+      await apiRequest<Book>(`/books/${book.id}/${action}`, {
+        method: "POST",
+      });
+
+      setMessage(
+        book.available
+          ? "Book borrowed successfully!"
+          : "Book returned successfully!"
+      );
+
+      await loadBooks();
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Unable to update book status."
+      );
+    }
+  }
+
+  const stats = [
+    { title: "Total Books", value: books.length, icon: "📚" },
+    { title: "Available Books", value: available, icon: "📖" },
+    { title: "Borrowed Books", value: borrowed, icon: "🔄" },
+  ];
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+    <div className="dashboard">
+      <aside className="sidebar">
+        <h2>📚 LibraryHub</h2>
+
+        <p className="menu-title">MAIN MENU</p>
+
+        <a className="menu-item active" href="#dashboard">
+          <span>▦</span> Dashboard
+        </a>
+
+        <a className="menu-item" href="#books">
+          <span>📚</span> Books
+        </a>
+      </aside>
+
+      <main className="main">
+        <header className="header" id="dashboard">
+          <div>
+            <h1>Library Management Dashboard</h1>
+            <p>Welcome back! Manage your library collection.</p>
+          </div>
+
+          <div className="header-actions">
+            <button className="primary" onClick={openAddForm}>
+              + Add New Book
+            </button>
+          </div>
+        </header>
+
+        <section className="stats">
+          {stats.map((stat) => (
+            <div className="stat-card" key={stat.title}>
+              <div className="stat-icon blue">{stat.icon}</div>
+              <p>{stat.title}</p>
+              <h2>{stat.value}</h2>
+              <small>Current library overview</small>
+            </div>
+          ))}
+        </section>
+
+        <section className="panel books-panel" id="books">
+          <div className="panel-heading">
+            <div>
+              <h3>Books Inventory</h3>
+              <p>Search, add, edit and manage your books</p>
+            </div>
+
+            <button className="primary" onClick={openAddForm}>
+              + Add Book
+            </button>
+          </div>
+
+          {message && (
+            <p role="status" className="message">
+              {message}
+            </p>
+          )}
+
+          <input
+            className="search-input"
+            type="text"
+            placeholder="Search by title, author or ISBN..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+
+          {showForm && (
+            <form className="book-form" onSubmit={saveBook}>
+              <h3>{editingId !== null ? "Edit Book" : "Add New Book"}</h3>
+
+              <input
+                placeholder="Book Title"
+                value={form.title}
+                onChange={(e) =>
+                  setForm({ ...form, title: e.target.value })
+                }
+                maxLength={200}
+                required
+              />
+
+              <input
+                placeholder="Author Name"
+                value={form.author}
+                onChange={(e) =>
+                  setForm({ ...form, author: e.target.value })
+                }
+                maxLength={100}
+                required
+              />
+
+              <input
+                placeholder="ISBN (Optional)"
+                value={form.isbn}
+                onChange={(e) =>
+                  setForm({ ...form, isbn: e.target.value })
+                }
+              />
+
+              <input
+                type="number"
+                placeholder="Publication Year (Optional)"
+                value={form.year}
+                onChange={(e) =>
+                  setForm({ ...form, year: e.target.value })
+                }
+              />
+
+              <button className="primary" type="submit" disabled={saving}>
+                {saving
+                  ? "Saving..."
+                  : editingId !== null
+                    ? "Update Book"
+                    : "Save Book"}
+              </button>
+
+              <button
+                className="secondary"
+                type="button"
+                onClick={() => {
+                  setShowForm(false);
+                  setEditingId(null);
+                  setForm(emptyForm);
+                }}
+              >
+                Cancel
+              </button>
+            </form>
+          )}
+
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Book Title</th>
+                  <th>Author</th>
+                  <th>ISBN</th>
+                  <th>Year</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={7}>Loading books...</td>
+                  </tr>
+                ) : filteredBooks.length > 0 ? (
+                  filteredBooks.map((book) => (
+                    <tr key={book.id}>
+                      <td>{book.id}</td>
+                      <td>
+                        <strong>{book.title}</strong>
+                      </td>
+                      <td>{book.author}</td>
+                      <td>{book.isbn || "—"}</td>
+                      <td>{book.year ?? "—"}</td>
+                      <td>
+                        <span
+                          className={`status ${
+                            book.available ? "available" : "borrowed"
+                          }`}
+                        >
+                          {book.available ? "Available" : "Borrowed"}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          className="action"
+                          onClick={() => openEditForm(book)}
+                        >
+                          Edit
+                        </button>{" "}
+
+                        <button
+                          className="action"
+                          onClick={() => changeBookStatus(book)}
+                        >
+                          {book.available ? "Borrow" : "Return"}
+                        </button>{" "}
+
+                        <button
+                          className="delete"
+                          onClick={() => deleteBook(book.id)}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={7}>No books found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <footer>© 2026 LibraryHub. Library Management System.</footer>
       </main>
     </div>
   );
