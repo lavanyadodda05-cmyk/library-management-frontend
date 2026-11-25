@@ -140,18 +140,21 @@ export default function Dashboard() {
           method: "PUT",
           body: JSON.stringify(payload),
         });
+
         setMessage("Book updated successfully!");
       } else {
         await apiRequest<Book>("/books", {
           method: "POST",
           body: JSON.stringify(payload),
         });
+
         setMessage("Book added successfully!");
       }
 
       setShowForm(false);
       setEditingId(null);
       setForm(emptyForm);
+
       await loadBooks();
     } catch (error) {
       setMessage(
@@ -173,6 +176,7 @@ export default function Dashboard() {
       await apiRequest<void>(`/books/${id}`, {
         method: "DELETE",
       });
+
       setMessage("Book deleted successfully!");
       await loadBooks();
     } catch (error) {
@@ -201,7 +205,9 @@ export default function Dashboard() {
       await loadBooks();
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "Unable to update book status."
+        error instanceof Error
+          ? error.message
+          : "Unable to update book status."
       );
     }
   }
@@ -214,6 +220,7 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard">
+
       <aside className="sidebar">
         <h2>📚 LibraryHub</h2>
 
@@ -229,6 +236,7 @@ export default function Dashboard() {
       </aside>
 
       <main className="main">
+
         <header className="header" id="dashboard">
           <div>
             <h1>Library Management Dashboard</h1>
@@ -254,15 +262,12 @@ export default function Dashboard() {
         </section>
 
         <section className="panel books-panel" id="books">
+
           <div className="panel-heading">
             <div>
               <h3>Books Inventory</h3>
               <p>Search, add, edit and manage your books</p>
             </div>
-
-            <button className="primary" onClick={openAddForm}>
-              + Add Book
-            </button>
           </div>
 
           {message && (
@@ -281,7 +286,10 @@ export default function Dashboard() {
 
           {showForm && (
             <form className="book-form" onSubmit={saveBook}>
-              <h3>{editingId !== null ? "Edit Book" : "Add New Book"}</h3>
+
+              <h3>
+                {editingId !== null ? "Edit Book" : "Add New Book"}
+              </h3>
 
               <input
                 placeholder="Book Title"
@@ -320,7 +328,11 @@ export default function Dashboard() {
                 }
               />
 
-              <button className="primary" type="submit" disabled={saving}>
+              <button
+                className="primary"
+                type="submit"
+                disabled={saving}
+              >
                 {saving
                   ? "Saving..."
                   : editingId !== null
@@ -339,11 +351,13 @@ export default function Dashboard() {
               >
                 Cancel
               </button>
+
             </form>
           )}
 
           <div className="table-wrap">
             <table>
+
               <thead>
                 <tr>
                   <th>ID</th>
@@ -364,13 +378,17 @@ export default function Dashboard() {
                 ) : filteredBooks.length > 0 ? (
                   filteredBooks.map((book) => (
                     <tr key={book.id}>
+
                       <td>{book.id}</td>
+
                       <td>
                         <strong>{book.title}</strong>
                       </td>
+
                       <td>{book.author}</td>
                       <td>{book.isbn || "—"}</td>
                       <td>{book.year ?? "—"}</td>
+
                       <td>
                         <span
                           className={`status ${
@@ -380,6 +398,7 @@ export default function Dashboard() {
                           {book.available ? "Available" : "Borrowed"}
                         </span>
                       </td>
+
                       <td>
                         <button
                           className="action"
@@ -402,6 +421,7 @@ export default function Dashboard() {
                           Delete
                         </button>
                       </td>
+
                     </tr>
                   ))
                 ) : (
@@ -410,12 +430,18 @@ export default function Dashboard() {
                   </tr>
                 )}
               </tbody>
+
             </table>
           </div>
+
         </section>
 
-        <footer>© 2026 LibraryHub. Library Management System.</footer>
+        <footer>
+          © 2026 LibraryHub. Library Management System.
+        </footer>
+
       </main>
     </div>
   );
 }
+
