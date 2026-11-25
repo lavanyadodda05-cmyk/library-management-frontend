@@ -260,6 +260,64 @@ export default function Dashboard() {
             </div>
           ))}
         </section>
+        <section className="panel" style={{ marginBottom: "20px" }}>
+  <h3>📊 Library Overview</h3>
+
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: "40px",
+      padding: "20px",
+    }}
+  >
+    <div
+      style={{
+        width: "220px",
+        height: "220px",
+        borderRadius: "50%",
+        background: `conic-gradient(
+          #3b82f6 0deg ${
+            books.length ? (available / books.length) * 360 : 0
+          }deg,
+          #8b5cf6 ${
+            books.length ? (available / books.length) * 360 : 0
+          }deg 360deg
+        )`,
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <div
+        style={{
+          width: "150px",
+          height: "150px",
+          background: "white",
+          borderRadius: "50%",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <h2>
+          {books.length
+            ? Math.round((available / books.length) * 100)
+            : 0}
+          %
+        </h2>
+
+        <p>Available</p>
+      </div>
+    </div>
+
+    <div>
+      <p>🔵 Available: {available}</p>
+      <p>🟣 Borrowed: {borrowed}</p>
+    </div>
+  </div>
+</section>
 
         <section className="panel books-panel" id="books">
 
